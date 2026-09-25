@@ -2,19 +2,31 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Database connection string.
+
+    # PostgreSQL database connection string
     DATABASE_URL: str
 
-    # Secret key used for creating and verifying JWT tokens.
     JWT_SECRET_KEY: str
 
-    # Algorithm used for JWT.
     JWT_ALGORITHM: str = "HS256"
 
-    # How long an access token should remain valid.
+    # Access token expiration time
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # Tell Pydantic Settings to read values from the .env file.
+    SMTP_HOST: str
+
+    SMTP_PORT: int = 587
+
+    SMTP_USERNAME: str
+
+    SMTP_PASSWORD: str
+
+    # Email address that appears as the sender
+    SMTP_FROM_EMAIL: str
+
+    APP_BASE_URL: str = "http://127.0.0.1:8000"
+
+    # Tell Pydantic to load values from .env
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -22,6 +34,5 @@ class Settings(BaseSettings):
     )
 
 
-# Create one settings object that can be imported
-# anywhere in our application.
+# Create one settings object for the application
 settings = Settings()

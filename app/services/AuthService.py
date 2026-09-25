@@ -5,6 +5,10 @@ from app.core.security import hash_password
 from app.models.UserModel import User
 from app.repositories.UserRepository import UserRepository
 from app.schemas.UserSchema import UserCreate
+from app.services.EmailService import EmailService
+from app.services.EmailVerificationService import (
+    EmailVerificationService,
+)
 
 
 class AuthService:
@@ -18,7 +22,6 @@ class AuthService:
 
         email = data.email.lower().strip()
 
-        # Check whether an account already exists
         existing_user = await UserRepository.get_by_email(
             db,
             email,
@@ -31,30 +34,39 @@ class AuthService:
                 detail="An account with this email already exists.",
             )
 
-        # Convert the plain password into an Argon2 hash
+        # Hash the user's password
         password_hash = hash_password(data.password)
 
-        # Create the SQLAlchemy User object
+        # Create the user object
         user = User(
-
-            # Store the user's first name
             first_name=data.first_name.strip(),
-
             last_name=data.last_name.strip(),
-
             date_of_birth=data.date_of_birth,
-
             email=email,
-
             password_hash=password_hash,
-
             email_verified=False,
-
             is_active=True,
         )
 
-        # Save the user in the database
-        return await UserRepository.create(
+        # Save the user
+        user = await UserRepository.create(
             db,
             user,
         )
+
+        # Generate a verification token
+        raw_token = (
+            await EmailVerificationService.create_verification_token(
+                db,
+                user.user_id,
+            )
+        )
+
+        # Send the original token to the user's email
+        await EmailService.send_verification_email(
+            recipient_email=user.email,
+            verification_token=raw_token,
+        )
+
+        # Return the created user
+        return user

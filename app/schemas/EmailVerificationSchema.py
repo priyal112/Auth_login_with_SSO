@@ -10,6 +10,12 @@ class EmailVerificationRequest(BaseModel):
     token: str
 
 
+# Schema used when requesting another verification email 
+class ResendVerificationRequest(BaseModel): 
+    
+    email: str
+    
+
 # Schema used when returning verification token information
 class EmailVerificationResponse(BaseModel):
 

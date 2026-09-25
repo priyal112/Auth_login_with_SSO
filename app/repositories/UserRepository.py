@@ -35,4 +35,16 @@ class UserRepository:
         await db.refresh(user)
 
         return user
+    
 
+    # Find a user using their user ID 
+    @staticmethod 
+    async def get_by_id( 
+        db: AsyncSession, 
+        user_id: int, 
+        ) -> User | None: 
+
+        # Build a query to find the user 
+        result = await db.execute( select(User).where(User.user_id == user_id) ) 
+        
+        return result.scalar_one_or_none()
