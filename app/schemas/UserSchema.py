@@ -46,3 +46,9 @@ class UserResponse(BaseModel):
 
     is_active: Optional[bool] = True
 
+
+class UserLogin(BaseModel):
+
+    email: EmailStr
+    password: str
+

@@ -1,42 +1,75 @@
 import hashlib
 import secrets
+from datetime import datetime, timedelta, timezone
 
 from argon2 import PasswordHasher
+# pyrefly: ignore [untyped-import]
+from jose import jwt
+
+from app.core.config import settings
 
 
-# Create password hashing object
+# Password hashing object
 password_hasher = PasswordHasher()
 
 
-# Convert a plain password into a secure hash
 def hash_password(password: str) -> str:
-
-    #generates the password hash
+    # Convert plain password into a secure Argon2 hash
     return password_hasher.hash(password)
 
 
-# Check whether a password matches the stored hash
-def verify_password(password: str, password_hash: str) -> bool:
-
+def verify_password(
+    password: str,
+    password_hash: str,
+) -> bool:
+    # Compare entered password with stored Argon2 hash
     try:
-
-        return password_hasher.verify(password_hash, password)
-
+        return password_hasher.verify(
+            password_hash,
+            password,
+        )
     except Exception:
         return False
 
 
-# Generate a secure random verification token
 def generate_verification_token() -> str:
-
-    # Generate a cryptographically secure random token
+    # Generate a secure random token for email verification
     return secrets.token_urlsafe(32)
 
 
-# Convert the verification token into a SHA-256 hash
 def hash_verification_token(token: str) -> str:
-
-    # Encode the token and create its SHA-256 hash
+    # Hash the verification token before storing it
     return hashlib.sha256(
         token.encode("utf-8")
     ).hexdigest()
+
+def create_access_token(
+    user_id: int,
+) -> str:
+
+    # Calculate when the JWT should expire
+    expire = (
+        datetime.now(timezone.utc)
+        + timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+    )
+
+    # Data that will be stored inside the JWT
+    payload = {
+        # Subject identifies the authenticated user
+        "sub": str(user_id),
+
+        # Identifies this token as an access token
+        "type": "access",
+        "exp": expire,
+    }
+
+    # Create and sign the JWT
+    access_token = jwt.encode(
+        payload,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+    return access_token

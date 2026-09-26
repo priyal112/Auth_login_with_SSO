@@ -4,19 +4,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import get_db_session
 from app.schemas.EmailVerificationSchema import (
     EmailVerificationRequest,
-    EmailVerificationResponse,
+    ResendVerificationRequest,
 )
-from app.schemas.UserSchema import UserCreate, UserResponse
+from app.schemas.UserSchema import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 from app.services.AuthService import AuthService
 from app.services.EmailVerificationService import (
     EmailVerificationService,
 )
-
-from app.schemas.EmailVerificationSchema import (
-    EmailVerificationRequest,
-    ResendVerificationRequest,
-)
-
+from app.schemas.AuthSchema import TokenResponse
 
 # router
 router = APIRouter(
@@ -82,3 +81,18 @@ async def resend_verification_email(
     }
 
 
+@router.post(
+    "/signin",
+    response_model=TokenResponse,
+)
+async def signin(
+    data: UserLogin,
+    db: AsyncSession = Depends(get_db_session),
+):
+    # Validate credentials and create JWT
+    token = await AuthService.signin(
+        db,
+        data,
+    )
+
+    return token
