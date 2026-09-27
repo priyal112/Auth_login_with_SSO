@@ -22,6 +22,20 @@ from app.services.EmailVerificationService import (
     EmailVerificationService,
 )
 
+from app.schemas.AuthSchema import (
+    ForgotPasswordRequest,
+    RefreshTokenRequest,
+    TokenResponse,
+)
+from app.services.PasswordResetService import PasswordResetService
+
+from app.schemas.AuthSchema import (
+    ForgotPasswordRequest,
+    RefreshTokenRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
+
 # router
 router = APIRouter(
     prefix="/auth",
@@ -149,4 +163,37 @@ async def logout(
     # Return a simple success message
     return {
         "message": "Successfully logged out."
+    }
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+
+    await PasswordResetService.request_password_reset(
+        db=db,
+        email=data.email,
+    )
+
+    return {
+        "message": "If an account exists with this email, a password reset link has been sent."
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    data: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    # Reset the user's password after validating the reset token
+    await PasswordResetService.reset_password(
+        db=db,
+        token=data.token,
+        new_password=data.password,
+    )
+
+    return {
+        "message": "Password has been reset successfully."
     }

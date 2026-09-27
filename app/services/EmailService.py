@@ -129,3 +129,73 @@ Thank you.
             text_content=text_content,
             html_content=html_content,
         )
+
+
+    @staticmethod
+    async def send_password_reset_email(
+        recipient_email: str,
+        reset_token: str,
+    ) -> None:
+
+        # Create the password reset URL
+        reset_url = (
+            f"{settings.APP_BASE_URL}"
+            f"/auth/reset-password?token={reset_token}"
+        )
+
+        subject = "Reset your password"
+
+        text_content = f"""
+            Hello,
+
+We received a request to reset your password.
+
+Please use the link below to reset your password:
+
+{reset_url}
+
+This password reset link will expire in 30 minutes.
+
+If you did not request a password reset, you can ignore this email.
+
+Thank you.
+"""
+
+        html_content = f"""
+<html>
+    <body>
+        <h2>Reset your password</h2>
+
+        <p>Hello,</p>
+
+        <p>
+            We received a request to reset your password.
+        </p>
+
+        <p>
+            <a href="{reset_url}">
+                Reset Password
+            </a>
+        </p>
+
+        <p>
+            This password reset link will expire in 30 minutes.
+        </p>
+
+        <p>
+            If you did not request a password reset,
+            you can ignore this email.
+        </p>
+
+        <p>Thank you.</p>
+    </body>
+</html>
+"""
+
+        # Send the password reset email
+        await EmailService.send_email(
+            recipient_email=recipient_email,
+            subject=subject,
+            text_content=text_content,
+            html_content=html_content,
+        )
