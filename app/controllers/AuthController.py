@@ -2,6 +2,11 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db_session
+from app.dependencies.current_user import get_current_user
+from app.schemas.AuthSchema import (
+    RefreshTokenRequest,
+    TokenResponse,
+)
 from app.schemas.EmailVerificationSchema import (
     EmailVerificationRequest,
     ResendVerificationRequest,
@@ -12,10 +17,10 @@ from app.schemas.UserSchema import (
     UserResponse,
 )
 from app.services.AuthService import AuthService
+from app.services.AuthSessionService import AuthSessionService
 from app.services.EmailVerificationService import (
     EmailVerificationService,
 )
-from app.schemas.AuthSchema import TokenResponse
 
 # router
 router = APIRouter(
@@ -96,3 +101,52 @@ async def signin(
     )
 
     return token
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+)
+async def get_my_profile(
+    current_user = Depends(get_current_user),
+):
+    # Return the currently authenticated user
+    return current_user
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+)
+async def refresh_access_token(
+    data: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    # Validate the refresh token and create a new access token
+    access_token = (
+        await AuthSessionService.refresh_access_token(
+            db,
+            data.refresh_token,
+        )
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=data.refresh_token,
+        token_type="bearer",
+    )
+
+@router.post("/logout")
+async def logout(
+    data: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    # Revoke the refresh session
+    await AuthSessionService.revoke_session(
+        db,
+        data.refresh_token,
+    )
+
+    # Return a simple success message
+    return {
+        "message": "Successfully logged out."
+    }

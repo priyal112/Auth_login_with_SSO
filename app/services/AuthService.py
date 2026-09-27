@@ -17,6 +17,7 @@ from app.core.security import (
 )
 
 from app.schemas.AuthSchema import TokenResponse
+from app.services.AuthSessionService import AuthSessionService
 
 class AuthService:
 
@@ -126,13 +127,22 @@ class AuthService:
                 detail="This account is inactive.",
             )
 
-        # Create a JWT access token for this user
+        # Create a JWT access token
         access_token = create_access_token(
             user.user_id,
         )
 
-        # Return the token to the client
+        # Create a refresh session
+        refresh_token, session = (
+            await AuthSessionService.create_session(
+                db,
+                user.user_id,
+            )
+        )
+
+        # Return both authentication tokens
         return TokenResponse(
             access_token=access_token,
+            refresh_token=refresh_token,
             token_type="bearer",
         )

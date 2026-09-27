@@ -3,7 +3,6 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from argon2 import PasswordHasher
-# pyrefly: ignore [untyped-import]
 from jose import jwt
 
 from app.core.config import settings
@@ -73,3 +72,17 @@ def create_access_token(
     )
 
     return access_token
+
+def generate_refresh_token() -> str:
+
+    return secrets.token_urlsafe(64)
+
+
+def hash_refresh_token(
+    refresh_token: str,
+) -> str:
+
+    # Hash the refresh token before storing it in the database
+    return hashlib.sha256(
+        refresh_token.encode("utf-8")
+    ).hexdigest()
