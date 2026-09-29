@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import Request
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import secrets
 
 from app.database.session import get_db_session
 from app.dependencies.current_user import get_current_user
 from app.schemas.AuthSchema import (
+    ForgotPasswordRequest,
     RefreshTokenRequest,
+    ResetPasswordRequest,
     TokenResponse,
 )
 from app.schemas.EmailVerificationSchema import (
@@ -21,26 +26,17 @@ from app.services.AuthSessionService import AuthSessionService
 from app.services.EmailVerificationService import (
     EmailVerificationService,
 )
-
-from app.schemas.AuthSchema import (
-    ForgotPasswordRequest,
-    RefreshTokenRequest,
-    TokenResponse,
-)
 from app.services.PasswordResetService import PasswordResetService
-
-from app.schemas.AuthSchema import (
-    ForgotPasswordRequest,
-    RefreshTokenRequest,
-    ResetPasswordRequest,
-    TokenResponse,
-)
+from app.services.SSO.GoogleProvider import GoogleProvider
+from app.services.SSO.SSOService import SSOService
 
 # router
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+
+google_provider = GoogleProvider()
 
 
 # Normal signup API
@@ -197,3 +193,87 @@ async def reset_password(
     return {
         "message": "Password has been reset successfully."
     }
+
+
+@router.get("/google/login")
+async def google_login():
+    # Generate a random state value
+
+    state = secrets.token_urlsafe(32)
+
+    # Create the Google authorization URL
+    authorization_url = google_provider.get_authorization_url(
+        state=state
+    )
+
+    # Redirect the browser to Google
+    response = RedirectResponse(
+        url=authorization_url
+    )
+
+    # Store the state in a browser cookie
+    response.set_cookie(
+        key="google_oauth_state",
+        value=state,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=600,
+    )
+
+    return response
+
+@router.get("/google/callback")
+async def google_callback(
+    code: str,
+    state: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
+    # Get the state that we previously stored in the user's browser
+    saved_state = request.cookies.get(
+        "google_oauth_state"
+    )
+
+    # Make sure a state cookie exists
+    if not saved_state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google OAuth state is missing.",
+        )
+
+    # Compare the state returned by Google with the state we originally generated
+    if not secrets.compare_digest(
+        saved_state,
+        state,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Google OAuth state.",
+        )
+
+    # Exchange Google's authorization code for Google's OAuth tokens
+    token_data = await google_provider.exchange_code(
+        code=code
+    )
+
+    # Get the user's information from Google
+    google_user_info = await google_provider.get_user_info(
+        token_data=token_data
+    )
+
+    # Find/create the application user and create our own application tokens
+    access_token, refresh_token = await SSOService.login(
+        db=db,
+        provider="google",
+        provider_user_info=google_user_info,
+    )
+
+    response = {
+        "message": "Google login successful.",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+    return response

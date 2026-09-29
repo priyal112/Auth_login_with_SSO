@@ -24,6 +24,18 @@ class Settings(BaseSettings):
     # Email address that appears as the sender
     SMTP_FROM_EMAIL: str
 
+    GOOGLE_CLIENT_ID: str
+
+    GOOGLE_CLIENT_SECRET: str
+
+    GOOGLE_REDIRECT_URI: str
+
+    MICROSOFT_CLIENT_ID: str
+
+    MICROSOFT_CLIENT_SECRET: str
+
+    MICROSOFT_REDIRECT_URI: str
+
     APP_BASE_URL: str = "http://127.0.0.1:8000"
 
     # Tell Pydantic to load values from .env
