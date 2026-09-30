@@ -29,6 +29,7 @@ from app.services.EmailVerificationService import (
 from app.services.PasswordResetService import PasswordResetService
 from app.services.SSO.GoogleProvider import GoogleProvider
 from app.services.SSO.SSOService import SSOService
+from app.services.SSO.MicrosoftProvider import MicrosoftProvider
 
 # router
 router = APIRouter(
@@ -37,6 +38,8 @@ router = APIRouter(
 )
 
 google_provider = GoogleProvider()
+
+microsoft_provider = MicrosoftProvider()
 
 
 # Normal signup API
@@ -277,3 +280,84 @@ async def google_callback(
     }
 
     return response
+
+
+@router.get("/microsoft/login")
+async def microsoft_login():
+
+    state = secrets.token_urlsafe(32)
+
+    authorization_url = microsoft_provider.get_authorization_url(
+        state=state
+    )
+
+    # Redirect the user's browser to Microsoft
+    response = RedirectResponse(
+        url=authorization_url
+    )
+
+    # Save the state in a secure HTTP-only cookie
+    response.set_cookie(
+        key="microsoft_oauth_state",
+        value=state,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=600,
+    )
+
+    return response
+
+@router.get("/microsoft/callback")
+async def microsoft_callback(
+    code: str,
+    state: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
+    # Get the state value that we saved
+    saved_state = request.cookies.get(
+        "microsoft_oauth_state"
+    )
+
+    # Make sure the state cookie exists
+    if not saved_state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Microsoft OAuth state is missing.",
+        )
+
+    # Compare the state returned by Microsoft with the state we originally generated
+    if not secrets.compare_digest(
+        saved_state,
+        state,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Microsoft OAuth state.",
+        )
+
+    # Exchange Microsoft's authorization code for Microsoft's OAuth tokens
+    token_data = await microsoft_provider.exchange_code(
+        code=code
+    )
+
+    # Get the authenticated Microsoft user's information
+    microsoft_user_info = await microsoft_provider.get_user_info(
+        token_data=token_data
+    )
+
+    # Use the common SSO service
+
+    access_token, refresh_token = await SSOService.login(
+        db=db,
+        provider="microsoft",
+        provider_user_info=microsoft_user_info,
+    )
+
+    return {
+        "message": "Microsoft login successful.",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }

@@ -1,6 +1,7 @@
+import httpx
 from typing import Any, Dict
 
-from authlib.integrations.httpx_client import AsyncOAuth2Client
+from authlib.integrations.httpx_client import AsyncOAuth2Client  # type: ignore[import-untyped]
 
 from app.core.config import settings
 from app.services.SSO.BaseProvider import BaseProvider
@@ -90,15 +91,11 @@ class GoogleProvider(BaseProvider):
                 "Google access token was not returned."
             )
 
-        client = AsyncOAuth2Client(
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            token=token_data,
-        )
-
-        response = await client.get(
-            self.USER_INFO_ENDPOINT
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                self.USER_INFO_ENDPOINT,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
 
         response.raise_for_status()
 
